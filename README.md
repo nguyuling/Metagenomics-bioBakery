@@ -64,88 +64,46 @@ DNA-Sequence from Soybean-precedent Carrot Rhizosphere (SRR30910742)
 ### Output Files Structure
 ```bash
 metagenomics_biobakery
-├── 0_reads
+├── 0_Reads
 │   └── (all raw paired-end reads)
-├── 1_fastqc
+├── 1_Fastqc
 │   ├── <sample_1>_R1_fastqc.html
-│   ├── <sample_1>_R1_fastqc.zip
-│   ├── <sample_1>_R2_fastqc.html
-│   ├── <sample_1>_R2_fastqc.zip
-│   ├──            ⋮
-│   ├── <sample_n>_R1_fastqc.html
-│   ├── <sample_n>_R1_fastqc.zip
-│   ├── <sample_n>_R2_fastqc.html
-│   └── <sample_n>_R2_fastqc.zip       
-├── 2_multiqc
+│   └── <sample_2>_R2_fastqc.html       
+├── 2_Multiqc
 │   ├── multiqc_report.pdf
 │   └── multiqc_report_data
-├── 3_cutadapt
+├── 3_Cutadapt
 │   ├── <sample_1>
-│   │   ├── <sample_1>_trimmed_R1.fastq
-│   │   └── <sample_1>_trimmed_R2.fastq
-│   ├──     ⋮
-│   ├── <sample_n>
+│   ├── <sample_2>
 │   └── cutadapt.txt
-├── 4_sortmerna
+├── 4_Sortmerna
 │   ├── <sample_1>
-│   │   ├── <sample_1>.fq
-│   │   ├── <sample_1>_aligned.log
-│   │   ├── <sample_1>_aligned_fwd.fq
-│   │   ├── <sample_1>_aligned_rev.fq
-│   │   ├── <sample_1>_unaligned_fwd.fq
-│   │   ├── <sample_1>_unaligned_rev.fq
-│   │   ├── idx
-│   │   └── kvdb
-│   ├──     ⋮
-│   └── <sample_n>
-├── 5_metaphlan
+│   └── <sample_2>
+├── 5_MetaPhlAn
 │   ├── <sample_1>
-│   │   ├── <sample_1>.krona.html   # visualization of taxonomic composition
-│   │   ├── <sample_1>_krona.txt
-│   │   ├── <sample_1>_metagenome_vJun23.bowtie2.bz2
-│   │   └── <sample_1>_taxonomic_profile.tsv
-│   ├──     ⋮
-│   └── <sample_n>
-├── 6_humann
+│   │   └── <sample_1>.krona.html
+│   └── <sample_2>
+│       └── <sample_2>.krona.html
+├── 6_HUMAnN
 │   ├── <sample_1>
-│   │   ├── <sample_1>_genefamilies.tsv
-│   │   ├── <sample_1>_pathabundance.tsv
-│   │   └── <sample_1>_pathcoverage.tsv
-│   ├──     ⋮
-│   └── <sample_n>
-├── 7_genes_mapping
-│   ├── <sample_1>                  # regrouped, renamed, renormed gene families abundance
-│   │   ├── <sample_1>_eggnog.tsv
-│   │   ├── <sample_1>_go.tsv
-│   │   ├── <sample_1>_ko.tsv
-│   │   ├── <sample_1>_level4ec.tsv
-│   │   ├── <sample_1>_pfam.tsv
-│   │   ├── <sample_1>_uniref50.tsv
-│   │   ├── <sample_1>_uniref90.tsv
-│   │   ├── regrouped
-│   │   │   └── ⋮
-│   │   ├── renamed
-│   │   │   └── ⋮
-│   │   └── renormed
-│   │       └── ⋮
-│   ├──     ⋮
-│   └── <sample_n>
-├── 8_pathways_analysis
-│   ├── <sample_1>                  # renamed, renormed, unpacked pathways
-│   │   ├── <sample_1>_pathabundance_unpacked.tsv
-│   │   └── <sample_1>_pathcoverage_unpacked.tsv
-│   ├──     ⋮
-│   └── <sample_n>
-├── 9_cross_analysis                # joined table of all samples
-│   ├── genefamilies.tsv
-│   ├── genefamilies_renormed.tsv
-│   ├── pathabundance.tsv
-│   ├── pathabundance_renormed.tsv
-│   └── pathcoverage.tsv
-├── <sample_1>.xlsx                 # excel: per-sample gene families & pathways
-│       ⋮
-├── <sample_n>.xlsx
-├── cross_analysis.xlsx             # excel: cross-sample gene families & pathways
-└── logs                            # log files
+│   └── <sample_2>
+├── 7_Genes_Mapping
+│   ├── Genes_Abs
+│   └── Genes_Relab
+├── 8_Pathways_Analysis
+│   ├── Unpacked_Pathabundance
+│   └── Unpacked_Pathcoverage
+├── 9_cross_analysis
+│   ├── genes_uniref90.tsv
+│   ├── genes_uniref50.tsv
+│   ├── genes_eggnog.tsv
+│   ├── genes_go.tsv
+│   ├── genes_ko.tsv
+│   ├── genes_level4ec.tsv
+│   ├── genes_pfam.tsv
+│   ├── unpacked_pathabundance.tsv
+│   ├── unpacked_pathcoverage.tsv
+│   └── genes_pathways.xlsx
+└── logs
     └── pipeline_20261113_180933.log
 ```
