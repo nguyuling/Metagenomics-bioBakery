@@ -5,36 +5,29 @@ set -e
 # bash biobakery.sh allforce   run all steps regardlessly
 
 # helper function script reference
-Scriptdir="$(cd "$(dirname "$0")" && pwd)"
-source "$Scriptdir/lib.sh"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib.sh"
 
-# global output directory / file
-cutadapt_txt="$Outdir/3_cutadapt/cutadapt.txt"
-Cross_Analysis="$Outdir/9_cross_analysis"
+CATEGORIES="uniref90 uniref50 eggnog go ko level4ec pfam"
 
 run_pair() {                                # to run metaphlan & humann on a read pair
     sample_name="$1"
 
     # per-sample output directories
-    Cutadapt="$Outdir/3_cutadapt/$sample_name"
-    Sortmerna="$Outdir/4_sortmerna/$sample_name"
-    Metaphlan="$Outdir/5_metaphlan/$sample_name"
-    Humann="$Outdir/6_humann/$sample_name"
-    Genes_Mapping="$Outdir/7_genes_mapping/$sample_name"
-    Pathways_Analysis="$Outdir/8_pathways_analysis/$sample_name"
+    Sortmerna="$SORTMERNA/$sample_name"
+    Metaphlan="$METAPHLAN/$sample_name"
+    Humann="$HUMANN/$sample_name"
 
     # per-sample output files
-    trimmed_r1="$Cutadapt/${sample_name}_trimmed_R1.fastq"
-    trimmed_r2="$Cutadapt/${sample_name}_trimmed_R2.fastq"
     unaligned="$Sortmerna/${sample_name}.fq"
     taxonomic_profile="$Metaphlan/${sample_name}_taxonomic_profile.tsv"
     genefamilies="$Humann/${sample_name}_genefamilies.tsv"
-    genefamilies_renormed_uniref90="$Genes_Mapping/renormed/${sample_name}_renormed_uniref90.tsv"
     pathabundance="$Humann/${sample_name}_pathabundance.tsv"
     pathcoverage="$Humann/${sample_name}_pathcoverage.tsv"
-    pathabundance_renormed="$Pathways_Analysis/${sample_name}_pathabundance_renormed.tsv.tmp"
-    pathabundance_unpacked="$Pathways_Analysis/${sample_name}_pathabundance_unpacked.tsv"
-    pathcoverage_unpacked="$Pathways_Analysis/${sample_name}_pathcoverage_unpacked.tsv"
+    genes_relab_uniref90="$Genes_Relab/${sample_name}_uniref90.tsv"
+    pathabundance_renormed="$Unpacked_Pathabundance/${sample_name}.tsv.tmp"
+    pathabundance_unpacked="$Unpacked_Pathabundance/${sample_name}.tsv"
+    pathcoverage_unpacked="$Unpacked_Pathcoverage/${sample_name}.tsv"
 
     log "=== Sample $sample_name ==="
     for stage in taxonomic_profiling functional_profiling genes_mapping unpack_pathways; do
@@ -55,7 +48,7 @@ run_all_pairs() {                           # to loop run_pair() on all samples
         log "Step 8 skipped: failed samples:$failed" && return 1
     fi
 
-    if [ "${ran_count:-0}" -gt "$before" ] || [ "$force" = 1 ] || [ ! -e "$Cross_Analysis/genefamilies_renormed.tsv" ]; then
+    if [ "${ran_count:-0}" -gt "$before" ] || [ "$force" = 1 ] || [ ! -e "$CROSS_ANALYSIS/genefamilies_renormed.tsv" ]; then
         cross_analysis || { log "Cross-analysis failed"; return 1; }
     else
         log "Step 8 skipped: no upstream changes"
@@ -64,12 +57,12 @@ run_all_pairs() {                           # to loop run_pair() on all samples
 
 taxonomic_profiling() {                     # to run metaphlan and generate krona pie chart 
     need "$unaligned" 3 || return 1
-    need "$Metaphlan_DB" || return 1
+    need "$METAPHLAN_DB" || return 1
     skip_if_done "taxonomic_profiling" "$taxonomic_profile" "$Metaphlan/$sample_name.krona.html" && return 0
     mkdir -p "$Metaphlan"
     run metaphlan \
         --input_type fastq \
-        --bowtie2db "$Metaphlan_DB" \
+        --bowtie2db "$METAPHLAN_DB" \
         -x mpa_vJun23_CHOCOPhlAnSGB_202307 \
         --bowtie2out "$Metaphlan/${sample_name}_metagenome_vJun23.bowtie2.bz2" \
         -o "$taxonomic_profile" \
@@ -88,61 +81,50 @@ taxonomic_profiling() {                     # to run metaphlan and generate kron
 functional_profiling() {                    # to run humann 
     need "$unaligned" 3 || return 1
     need "$taxonomic_profile" 4 || return 1
-    need "$Humann_DB/chocophlan" || return 1
-    need "$Humann_DB/uniref" || return 1
+    need "$HUMANN_DB/chocophlan" || return 1
+    need "$HUMANN_DB/uniref" || return 1
     skip_if_done "functional_profiling" "$genefamilies" "$pathabundance" "$pathcoverage" && return 0
     mkdir -p "$Humann"
     run humann \
         -i "$unaligned" \
         -o "$Humann" \
         --taxonomic-profile "$taxonomic_profile" \
-        --nucleotide-database "$Humann_DB/chocophlan" \
-        --protein-database "$Humann_DB/uniref" \
+        --nucleotide-database "$HUMANN_DB/chocophlan" \
+        --protein-database "$HUMANN_DB/uniref" \
         --threads "$threads"
-}
-
-sort_table() {                              # to sort abundance/coverage values in descending order
-    file="$1"
-    header=$(head -n 1 "$file")
-    tail -n +2 "$file" | sort -t "$(printf '\t')" -k2,2gr > "$file.tmp"
-    { printf '%s\n' "$header"; cat "$file.tmp"; } > "$file"
-    rm -f "$file.tmp"
 }
 
 genes_mapping() {                           # to regroup, sort, rename and renorm gene families abundance
     need "$genefamilies" 5 || return 1
-    need "$Humann_DB/utility_mapping" || return 1
-    path="$Genes_Mapping/${sample_name}"
-    skip_if_done "genes_mapping" "${path}_uniref90.tsv" "${path}_uniref50.tsv" "${path}_eggnog.tsv" \
-        "${path}_go.tsv" "${path}_ko.tsv" "${path}_level4ec.tsv" "${path}_pfam.tsv" && return 0
-    mkdir -p "$Genes_Mapping/regrouped" "$Genes_Mapping/renamed" "$Genes_Mapping/renormed"
+    need "$HUMANN_DB/utility_mapping" || return 1
+    output=()
+    for c in $CATEGORIES; do
+        output+=("$Genes_Abs/${sample_name}_${c}.tsv" "$Genes_Relab/${sample_name}_${c}.tsv")
+    done
+    skip_if_done "genes_mapping" "${output[@]}" && return 0
+    mkdir -p "$Genes_Abs" "$Genes_Relab"
 
     while read -r category groupmap namemap; do
-        regrouped="$Genes_Mapping/regrouped/${sample_name}_regrouped_${category}.tsv"
-        renamed="$Genes_Mapping/renamed/${sample_name}_renamed_${category}.tsv"
-        renormed="$Genes_Mapping/renormed/${sample_name}_renormed_${category}.tsv"
-        combined="$Genes_Mapping/${sample_name}_${category}.tsv"
-
+        regrouped="$GENES_MAPPING/${sample_name}_${category}.tsv.tmp"
+        renamed="$Genes_Abs/${sample_name}_${category}.tsv"
+        renormed="$Genes_Relab/${sample_name}_${category}.tsv"
         if [ "$groupmap" = "none" ]; then
             cp "$genefamilies" "$regrouped"  || return 1
         else
             run humann_regroup_table \
                 -i "$genefamilies" \
-                -c "$Humann_DB/utility_mapping/$groupmap" \
+                -c "$HUMANN_DB/utility_mapping/$groupmap" \
                 -o "$regrouped" || return 1
         fi
-        run sort_table "$regrouped" || return 1
         run humann_rename_table \
             -i "$regrouped" \
-            -c "$Humann_DB/utility_mapping/$namemap" \
+            -c "$HUMANN_DB/utility_mapping/$namemap" \
             -o "$renamed" || return 1
         run humann_renorm_table \
             -i "$regrouped" \
             -u relab \
             -o "$renormed" || return 1
-        paste "$renamed" \
-            <(awk -F'\t' 'BEGIN{OFS="\t"} {print $NF}' "$renormed") > "$combined" || return 1
-
+        rm -f "$regrouped"
     done <<EOF
 uniref90    none                            map_uniref90_name.txt.bz2
 uniref50    map_uniref50_uniref90.txt.gz    map_uniref50_name.txt.bz2
@@ -152,79 +134,66 @@ ko          map_ko_uniref90.txt.gz          map_ko_name.txt.gz
 level4ec    map_level4ec_uniref90.txt.gz    map_ec_name.txt.gz
 pfam        map_pfam_uniref90.txt.gz        map_pfam_name.txt.gz
 EOF
-
-    rm -f "$Outdir/$sample_name.xlsx"
-    run python "$Scriptdir/make_excel.py" "$sample_name" "$Outdir" "$Genes_Mapping" || return 1
 }
 
 unpack_pathways() {                         # to assign gene families to pathways
-    need "$genefamilies_renormed_uniref90" 6 || return 1
+    need "$genes_relab_uniref90" 6 || return 1
     need "$pathabundance" 5 || return 1
     need "$pathcoverage" 5 || return 1
-    need "$Humann_DB/pathways" || return 1
+    need "$HUMANN_DB/pathways" || return 1
     skip_if_done "unpack_pathways" "$pathabundance_unpacked" "$pathcoverage_unpacked" && return 0
     rm -f "$pathabundance_renormed"
-
-    run sort_table "$pathabundance" || return 1
     run humann_renorm_table \
         -i "$pathabundance" \
         -u relab \
         -o "$pathabundance_renormed" || return 1
     run humann_unpack_pathways \
-        --input-genes "$genefamilies_renormed_uniref90" \
+        --input-genes "$genes_relab_uniref90" \
         --input-pathways "$pathabundance_renormed" \
-        --gene-mapping "$Humann_DB/pathways/metacyc_reactions_level4ec_only.uniref.bz2" \
-        --pathway-mapping "$Humann_DB/pathways/metacyc_pathways_structured_filtered_v24" \
+        --gene-mapping "$HUMANN_DB/pathways/metacyc_reactions_level4ec_only.uniref.bz2" \
+        --pathway-mapping "$HUMANN_DB/pathways/metacyc_pathways_structured_filtered_v24" \
         --output "$pathabundance_unpacked" || return 1
     rm -f "$pathabundance_renormed"         # rm temp renormed pathways abundance after unpacking
-
-    run sort_table "$pathcoverage" || return 1
     run humann_unpack_pathways \
-        --input-genes "$genefamilies_renormed_uniref90" \
+        --input-genes "$genes_relab_uniref90" \
         --input-pathways "$pathcoverage" \
-        --gene-mapping "$Humann_DB/pathways/metacyc_reactions_level4ec_only.uniref.bz2" \
-        --pathway-mapping "$Humann_DB/pathways/metacyc_pathways_structured_filtered_v24" \
+        --gene-mapping "$HUMANN_DB/pathways/metacyc_reactions_level4ec_only.uniref.bz2" \
+        --pathway-mapping "$HUMANN_DB/pathways/metacyc_pathways_structured_filtered_v24" \
         --output "$pathcoverage_unpacked" || return 1
-    run python "$Scriptdir/make_excel.py" "$sample_name" "$Outdir" "$Pathways_Analysis" || return 1
 }
 
 cross_analysis() {                          # to join gene families & pathways tables of all samples
-    skip_if_done "cross_analysis" "$Cross_Analysis/genefamilies_renormed.tsv" \
-        "$Cross_Analysis/pathabundance.tsv" "$Cross_Analysis/pathcoverage.tsv" \
-        "$Outdir/cross_analysis.xlsx" && return 0
-    mfkdir -p "$Cross_Analysis"
-    samples=$(awk -F'\t' 'NR > 1 && $1 != "" {print $1}' "$cutadapt_txt")
-    stage="$Cross_Analysis/.stage"
-    rm -rf "$stage"
-    mkdir -p "$stage/genefamilies" "$stage/pathabundance" "$stage/pathcoverage"
-    for s in $samples; do
-        for t in genefamilies pathabundance pathcoverage; do
-            src="$Outdir/6_humann/$s/${s}_${t}.tsv"
-            [ -e "$src" ] || { log "ERROR: missing $src"; rm -rf "$stage"; return 1; }
-            ln -sf "$src" "$stage/$t/${s}_${t}.tsv"
-        done
+    output=()
+    for c in $CATEGORIES; do
+        output+=("$CROSS_ANALYSIS/Genes_Abs_${c}.tsv" "$CROSS_ANALYSIS/Genes_Relab_${c}.tsv")
+    done
+    skip_if_done "cross_analysis" "${output[@]}" "$CROSS_ANALYSIS/Unpacked_Pathabundance.tsv" "$CROSS_ANALYSIS/Unpacked_Pathcoverage.tsv" && return 0
+    mkdir -p "$CROSS_ANALYSIS"
+
+    for c in $CATEGORIES; do
+        genes_abs="$CROSS_ANALYSIS/Genes_Abs_${c}.tsv.tmp"
+        genes_relab="$CROSS_ANALYSIS/Genes_Relab_${c}.tsv.tmp"
+        run humann_join_tables \
+            -i "$Genes_Abs" \
+            --file_name "_${c}.tsv" \
+            -o "$genes_abs" || return 1
+        run humann_join_tables \
+            -i "$Genes_Relab" \
+            --file_name "_${c}.tsv" \
+            -o "$genes_relab" || return 1
+        run python "$SCIRPT_DIR/merge_genes.py" \
+            "$CROSS_ANALYSIS/Genes_${c}.tsv" "$genes_abs" "$$genes_relab" "$c" || return 1
+        rm -f "$genes_abs" "$genes_relab"
     done
 
-    run humann_join_tables -i "$stage/genefamilies" \
-        -o "$Cross_Analysis/genefamilies.tsv" || { rm -rf "$stage"; return 1; }
-    run humann_rename_table \
-        -i "$Cross_Analysis/genefamilies.tsv" \
-        -c "$Humann_DB/utility_mapping/map_uniref90_name.txt.bz2" \
-        -o "$Cross_Analysis/genefamilies.tmp" \
-    && mv "$Cross_Analysis/genefamilies.tmp" "$Cross_Analysis/genefamilies.tsv" \
-    || { rm -rf "$stgae"; return 1; }
-    run humann_renorm_table \
-        -i "$Cross_Analysis/genefamilies.tsv" -u relab \
-        -o "$Cross_Analysis/genefamilies_renormed.tsv" || { rm -rf "$stage"; return 1; }
-    run humann_join_tables -i "$stage/pathabundance" \
-        -o "$Cross_Analysis/pathabundance.tsv" || { rm -rf "$stage"; return 1; }
-    run humann_join_tables -i "$stage/pathcoverage" \
-        -o "$Cross_Analysis/pathcoverage.tsv" || { rm -rf "$stage"; return 1; }
-    rm -rf "$stage"
-    run humann_renorm_table \
-        -i "$Cross_Analysis/pathabundance.tsv" -u relab \
-        -o "$Cross_Analysis/pathabundance_renormed.tsv" || return 1
-    run python "$Scriptdir/make_excel.py" "cross_analysis" "$Outdir" "$Cross_Analysis" || return 1
+    find "$Unpacked_Pathabundance" -name "*.tsv.tmp" -delete
+    run humann_join_tables \
+        -i "$Unpacked_Pathabundance" \
+        -o "$CROSS_ANALYSIS/Unpacked_Pathabundance.tsv" || return 1
+    run humann_join_tables \
+        -i "$Unpacked_Pathcoverage" \
+        -o "$CROSS_ANALYSIS/Unpacked_Pathcoverage.tsv" || return 1
+    run python "$SCRIPT_DIR/make_excel.py" "cross_analysis" "$OUT_DIR" "$CROSS_ANALYSIS" || return 1
 }
 
 # entry point
