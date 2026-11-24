@@ -2,19 +2,28 @@
 set -e
 
 # SET output and database directories
-OUT_DIR=/Volumes/T7/carrot_rhizosphere_metagenome    # output directory
+OUT_DIR=/Volumes/T7/metagenomics            # output directory
 SORTMERNA_DB=/Volumes/T7/databases/sortmerna    # rrna sequences database
 METAPHLAN_DB=/Volumes/T7/conda_envs/biobakery/lib/python3.10/site-packages/metaphlan/metaphlan_databases # metaphlan database
 HUMANN_DB=/Volumes/T7/conda_envs/biobakery/lib/python3.10/site-packages/humann/data
 LOG="$OUT_DIR/logs"                         # log directories
 threads=4                                   # number of core
 
-# global output directories, subdirectories and files
+# qc.sh outdir
 READS="$OUT_DIR/0_Reads"
 FASTQC="$OUT_DIR/1_Fastqc"
 MULTIQC="$OUT_DIR/2_Multiqc"
 CUTADAPT="$OUT_DIR/3_Cutadapt"
 SORTMERNA="$OUT_DIR/4_Sortmerna"
+
+# moshpit.sh outdir
+ASSEMBLY="$OUT_DIR/1_Genome_Assembly"
+BINNING="$OUT_DIR/2_MAG_Binning"
+DEREPLICATION="$OUT_DIR/3_MAG_Dereplication"
+TAXONOMIC="$OUT_DIR/4_Taxonomic_Classification"
+
+# biobakery.sh outdir, subdir and file
+READS="$OUT_DIR/0_Reads"
 METAPHLAN="$OUT_DIR/5_MetaPhlAn"
 HUMANN="$OUT_DIR/6_HUMAnN"
 GENES_MAPPING="$OUT_DIR/7_Genes_Mapping"
