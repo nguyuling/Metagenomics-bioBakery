@@ -7,7 +7,7 @@ SORTMERNA_DB=/Volumes/T7/databases/sortmerna    # rrna sequences database
 METAPHLAN_DB=/Volumes/T7/conda_envs/biobakery/lib/python3.10/site-packages/metaphlan/metaphlan_databases # metaphlan database
 HUMANN_DB=/Volumes/T7/conda_envs/biobakery/lib/python3.10/site-packages/humann/data
 LOG="$OUT_DIR/logs"                         # log directories
-threads=8                                   # number of core
+threads=4                                   # number of core
 
 # global output directories, subdirectories and files
 READS="$OUT_DIR/0_Reads"
