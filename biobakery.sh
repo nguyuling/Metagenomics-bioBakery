@@ -182,18 +182,18 @@ cross_analysis() {                          # to join gene families & pathways t
             --file_name "_${c}.tsv" \
             -o "$genes_relab" || return 1
         run python "$SCIRPT_DIR/merge_genes.py" \
-            "$CROSS_ANALYSIS/Genes_${c}.tsv" "$genes_abs" "$$genes_relab" "$c" || return 1
+            "$CROSS_ANALYSIS/genes_${c}.tsv" "$genes_abs" "$$genes_relab" "$c" || return 1
         rm -f "$genes_abs" "$genes_relab"
     done
 
     find "$Unpacked_Pathabundance" -name "*.tsv.tmp" -delete
     run humann_join_tables \
         -i "$Unpacked_Pathabundance" \
-        -o "$CROSS_ANALYSIS/Unpacked_Pathabundance.tsv" || return 1
+        -o "$CROSS_ANALYSIS/unpacked_pathabundance.tsv" || return 1
     run humann_join_tables \
         -i "$Unpacked_Pathcoverage" \
-        -o "$CROSS_ANALYSIS/Unpacked_Pathcoverage.tsv" || return 1
-    run python "$SCRIPT_DIR/make_excel.py" "cross_analysis" "$OUT_DIR" "$CROSS_ANALYSIS" || return 1
+        -o "$CROSS_ANALYSIS/unpacked_pathcoverage.tsv" || return 1
+    run python "$SCRIPT_DIR/make_excel.py" "genes_pathways" "$OUT_DIR" "$CROSS_ANALYSIS" || return 1
 }
 
 # entry point
