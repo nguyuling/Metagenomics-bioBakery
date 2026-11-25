@@ -8,7 +8,7 @@ HUMANN_DB=/Volumes/T7/conda_envs/biobakery/lib/python3.10/site-packages/humann/d
 LOG="$OUT_DIR/logs"                         # log directories
 threads=8                                   # number of core
 
-# output directories
+# output files directories
 READS="$OUT_DIR/0_Reads"
 FASTQC="$OUT_DIR/1_Fastqc"
 MULTIQC="$OUT_DIR/2_Multiqc"
@@ -19,7 +19,7 @@ GENES_MAPPING="$OUT_DIR/6_Genes_Mapping"
 PATHWAYS_ANALYSIS="$OUT_DIR/7_Pathways_Analysis"
 CROSS_ANALYSIS="$OUT_DIR/8_Cross_Analysis"
 
-# subdirectories
+# output files subdirectories
 Genes_Abs="$GENES_MAPPING/Genes_Abs"
 Genes_Relab="$GENES_MAPPING/Genes_Relab"
 Unpacked_Pathabundance="$PATHWAYS_ANALYSIS/Unpacked_Pathabundance"
