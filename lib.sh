@@ -3,37 +3,33 @@ set -e
 
 # SET output and database directories
 OUT_DIR=/Volumes/T7/metagenomics            # output directory
-SORTMERNA_DB=/Volumes/T7/databases/sortmerna    # rrna sequences database
-METAPHLAN_DB=/Volumes/T7/conda_envs/biobakery/lib/python3.10/site-packages/metaphlan/metaphlan_databases # metaphlan database
+METAPHLAN_DB=/Users/nguyuling/Documents/metaphlan_databases # metaphlan database
 HUMANN_DB=/Volumes/T7/conda_envs/biobakery/lib/python3.10/site-packages/humann/data
 LOG="$OUT_DIR/logs"                         # log directories
-threads=4                                   # number of core
+threads=8                                   # number of core
 
-# qc.sh outdir
+# output directories
 READS="$OUT_DIR/0_Reads"
 FASTQC="$OUT_DIR/1_Fastqc"
 MULTIQC="$OUT_DIR/2_Multiqc"
 CUTADAPT="$OUT_DIR/3_Cutadapt"
-SORTMERNA="$OUT_DIR/4_Sortmerna"
+METAPHLAN="$OUT_DIR/4_MetaPhlAn"
+HUMANN="$OUT_DIR/5_HUMAnN"
+GENES_MAPPING="$OUT_DIR/6_Genes_Mapping"
+PATHWAYS_ANALYSIS="$OUT_DIR/7_Pathways_Analysis"
+CROSS_ANALYSIS="$OUT_DIR/8_Cross_Analysis"
 
-# moshpit.sh outdir
-ASSEMBLY="$OUT_DIR/1_Genome_Assembly"
-BINNING="$OUT_DIR/2_MAG_Binning"
-DEREPLICATION="$OUT_DIR/3_MAG_Dereplication"
-TAXONOMIC="$OUT_DIR/4_Taxonomic_Classification"
-
-# biobakery.sh outdir, subdir and file
-READS="$OUT_DIR/0_Reads"
-METAPHLAN="$OUT_DIR/5_MetaPhlAn"
-HUMANN="$OUT_DIR/6_HUMAnN"
-GENES_MAPPING="$OUT_DIR/7_Genes_Mapping"
-PATHWAYS_ANALYSIS="$OUT_DIR/8_Pathways_Analysis"
-CROSS_ANALYSIS="$OUT_DIR/9_Cross_Analysis"
+# subdirectories
 Genes_Abs="$GENES_MAPPING/Genes_Abs"
 Genes_Relab="$GENES_MAPPING/Genes_Relab"
 Unpacked_Pathabundance="$PATHWAYS_ANALYSIS/Unpacked_Pathabundance"
 Unpacked_Pathcoverage="$PATHWAYS_ANALYSIS/Unpacked_Pathcoverage"
+
+# output files
 cutadapt_txt="$CUTADAPT/cutadapt.txt"
+
+# mapping variable
+CATEGORIES="uniref90 uniref50 eggnog go ko level4ec pfam"
 
 mkdir -p "$LOG"
 log_file="$LOG/pipeline_$(date '+%Y%m%d_%H%M%S').log"
@@ -45,15 +41,15 @@ log() {                                     # log datetime and message to termin
 }
 
 run() {                                     # usage: run <command> <parameter>
-    log "START: $*"                         # log the starting step
-    start=$(date +%s)                       # start time
+    log "START: $*"                         # log the starting step's command
+    start=$(date +%s)                       # store the start time
     if "$@" >> "$log_file" 2>&1; then       # run the command, write stdout / stderr to log file
-        ran_count=$(( ${ran_count:-0} + 1 ))    
+        ran_count=$(( ${ran_count:-0} + 1 ))    # add 1 for each successful step run
         log "OK ($(( $(date +%s) - start ))s)"  # exit 0 : log run time (current time - start time)
     else
-        rc=$?                               # exit != 0 : create variable of the latest exit code
-        log "FAILED (exit $rc): $*"         # log the exit code and failed command
-        return "$rc"
+        rc=$?                               # exit != 0 : hold exit code of the last command
+        log "FAILED (exit $rc): $*"         # log the exit code and the failed command
+        return "$rc"                        # return the exit code
     fi
 }
 
@@ -66,25 +62,25 @@ need() {                                    # usage: need <file or dir> <step nu
 skip_if_done() {                            # usage: skip_if_done <step name> <output>...
     name=$1; shift                          # remove first arguments (step name), leaving only the output files
     [ "${force:-0}" = 1 ] && { log "RUN $name: force=1"; return 1; }
-    for f in "$@"; do
-        if [ ! -e "$f" ]; then
-            log "RUN $name: missing $f"
-            return 1
+    for f in "$@"; do                       # for each file
+        if [ ! -e "$f" ]; then              # if the file is missing
+            log "RUN $name: missing $f"     # log message to run the step
+            return 1                        # stop the function
         fi
     done
-    log "SKIPPED $name: outputs already exist"
+    log "SKIPPED $name: outputs already exist"  # if file(s) exist, log skipping step message
     return 0
 }
 
-run_stages() {                              # usage: run_stages <force 0|1> <function>...
-    force=$1; shift
-    start=$(date +%s)
-    for stage in "$@"; do
-        if ! "$stage"; then
-            log "STOPPED at $stage. Fix the error and run again."
-            return 1
+run_steps() {                               # usage: run_stages <force 0|1> <function>...
+    force=$1; shift                         
+    start=$(date +%s)                       # store the start time 
+    for step in "$@"; do                    # for each step
+        if ! "$step"; then                  # run the step, if it fails
+            log "STOPPED at $step. Fix the error and run again."    # log failure message
+            return 1                        # stop this function
         fi
     done
-    total=$(( $(date +%s) - start ))
-    log "DONE. Total time: $(( total / 60 )) min $(( total % 60 )) sec"
+    total=$(( $(date +%s) - start ))        # if successful, count the total run time
+    log "DONE. Total time: $(( total / 60 )) min $(( total % 60 )) sec" # log total run time
 }
