@@ -8,8 +8,6 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib.sh"
 
-CATEGORIES="uniref90 uniref50 eggnog go ko level4ec pfam"
-
 run_pair() {                                # to run metaphlan & humann on a read pair
     sample_name="$1"
 
@@ -19,7 +17,7 @@ run_pair() {                                # to run metaphlan & humann on a rea
     Humann="$HUMANN/$sample_name"
 
     # per-sample output files
-    unaligned="$Sortmerna/${sample_name}.fq"
+    trimmed="$CUTADAPT/${sample_name}_trimmed.fastq"
     taxonomic_profile="$Metaphlan/${sample_name}_taxonomic_profile.tsv"
     genefamilies="$Humann/${sample_name}_genefamilies.tsv"
     pathabundance="$Humann/${sample_name}_pathabundance.tsv"
@@ -48,7 +46,7 @@ run_all_pairs() {                           # to loop run_pair() on all samples
         log "Step 8 skipped: failed samples:$failed" && return 1
     fi
 
-    if [ "${ran_count:-0}" -gt "$before" ] || [ "$force" = 1 ] || [ ! -e "$CROSS_ANALYSIS/genefamilies_renormed.tsv" ]; then
+    if [ "${ran_count:-0}" -gt "$before" ] || [ "$force" = 1 ] || [ ! -e "$CROSS_ANALYSIS/unpacked_pathcoverage.tsv" ]; then
         cross_analysis || { log "Cross-analysis failed"; return 1; }
     else
         log "Step 8 skipped: no upstream changes"
@@ -56,7 +54,7 @@ run_all_pairs() {                           # to loop run_pair() on all samples
 }
 
 taxonomic_profiling() {                     # to run metaphlan and generate krona pie chart 
-    need "$unaligned" 3 || return 1
+    need "$trimmed" 3 || return 1
     need "$METAPHLAN_DB" || return 1
     skip_if_done "taxonomic_profiling" "$taxonomic_profile" "$Metaphlan/$sample_name.krona.html" && return 0
     mkdir -p "$Metaphlan"
@@ -68,7 +66,7 @@ taxonomic_profiling() {                     # to run metaphlan and generate kron
         -o "$taxonomic_profile" \
         --nproc "$threads" \
         --offline \
-        "$unaligned"  || return 1
+        "$trimmed"  || return 1
     run metaphlan2krona.py \
         -p "$taxonomic_profile" \
         -k "$Metaphlan/${sample_name}_krona.txt"  || return 1
@@ -79,18 +77,19 @@ taxonomic_profiling() {                     # to run metaphlan and generate kron
 }
 
 functional_profiling() {                    # to run humann 
-    need "$unaligned" 3 || return 1
+    need "$trimmed" 3 || return 1
     need "$taxonomic_profile" 4 || return 1
     need "$HUMANN_DB/chocophlan" || return 1
     need "$HUMANN_DB/uniref" || return 1
     skip_if_done "functional_profiling" "$genefamilies" "$pathabundance" "$pathcoverage" && return 0
     mkdir -p "$Humann"
     run humann \
-        -i "$unaligned" \
+        -i "$trimmed" \
         -o "$Humann" \
         --taxonomic-profile "$taxonomic_profile" \
         --nucleotide-database "$HUMANN_DB/chocophlan" \
         --protein-database "$HUMANN_DB/uniref" \
+        --memory-use maximum \
         --threads "$threads"
 }
 
@@ -181,8 +180,8 @@ cross_analysis() {                          # to join gene families & pathways t
             -i "$Genes_Relab" \
             --file_name "_${c}.tsv" \
             -o "$genes_relab" || return 1
-        run python "$SCIRPT_DIR/merge_genes.py" \
-            "$CROSS_ANALYSIS/genes_${c}.tsv" "$genes_abs" "$$genes_relab" "$c" || return 1
+        run python "$SCRIPT_DIR/utils/merge_genes.py" \
+            "$CROSS_ANALYSIS/genes_${c}.tsv" "$genes_abs" "$genes_relab" "$c" || return 1
         rm -f "$genes_abs" "$genes_relab"
     done
 
@@ -193,7 +192,7 @@ cross_analysis() {                          # to join gene families & pathways t
     run humann_join_tables \
         -i "$Unpacked_Pathcoverage" \
         -o "$CROSS_ANALYSIS/unpacked_pathcoverage.tsv" || return 1
-    run python "$SCRIPT_DIR/make_excel.py" "genes_pathways" "$OUT_DIR" "$CROSS_ANALYSIS" || return 1
+    run python "$SCRIPT_DIR/utils/make_excel.py" "genes_pathways" "$OUT_DIR" "$CROSS_ANALYSIS" || return 1
 }
 
 # entry point
