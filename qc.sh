@@ -95,121 +95,83 @@ make_cutadapt_txt() {                   # to make default cutadapt specification
     fi
 }
 
-trim_adapters() {                       # to trim adapters of each read pair
+trim_reads() {                          # to ask user, then trim adapters of each read pair
     need "$cutadapt_txt" 1 || return 1
-
-    header=$(head -n 1 "$cutadapt_txt")
-    row=$(awk -F'\t' -v s="$sample_name" '$1 == s {print; exit}' "$cutadapt_txt")
-    if [ -z "$row" ]; then
-        log "ERROR: $sample_name not found in cutadapt.txt" && return 1
-    fi
-
-    IFS=$'\t' read -r -a cols <<< "$header"
-    IFS=$'\t' read -r -a vals <<< "$row"
-    r1_name=""
-    r2_name=""
-    cut_args=()
-    for i in "${!cols[@]}"; do
-        col="${cols[$i]}"
-        val="${vals[$i]:-}"
-        case "$col" in
-            ""|sample_name) continue ;;
-            r1)             r1_name="$val" ;;
-            r2)             r2_name="$val" ;;
-            -o|-p|-j)       log "WARN: column $col is set by the script, ignored" ;;
-            -*)             [ -n "$val" ] && cut_args+=("$col" "$val") ;;
-            *)              log "WARN: unknown column $col, ignored" ;;
-        esac
-    done
-
-    if [ -z "$r1_name" ] || [ -z "$r2_name" ]; then
-        log "ERROR: r1 and r2 columns must be set for $sample_name" && return 1
-    fi
-
-    r1="$READS/$r1_name"
-    r2="$READS/$r2_name"
-    need "$r1" 1 || return 1
-    need "$r2" 1 || return 1
-
-    skip_if_done "trim_adapters" "$trimmed_r1" "$trimmed_r2" && return 0
-    mkdir -p "$sample_cutadapt"
-
-    run cutadapt "${cut_args[@]}" \
-        -j "$threads" \
-        -o "$trimmed_r1" \
-        -p "$trimmed_r2" \
-        --report=full \
-        "$r1" "$r2"
-}
-
-filter_rrna() {                         # to separate rRNA and non-rRNA reads
-    need "$trimmed_r1" 2 || return 1
-    need "$trimmed_r2" 2 || return 1
-    need "$SORTMERNA_DB" || return 1
-    skip_if_done "filter_rrna" "$unaligned" && return 0
-    mkdir -p "$sample_sortmerna"
-    run sortmerna \
-        --ref "$SORTMERNA_DB/silva-arc-16s-id95.fasta" \
-        --ref "$SORTMERNA_DB/silva-arc-23s-id98.fasta" \
-        --ref "$SORTMERNA_DB/silva-bac-16s-id90.fasta" \
-        --ref "$SORTMERNA_DB/silva-bac-23s-id98.fasta" \
-        --ref "$SORTMERNA_DB/silva-euk-18s-id95.fasta" \
-        --ref "$SORTMERNA_DB/silva-euk-28s-id98.fasta" \
-        --ref "$SORTMERNA_DB/rfam-5s-database-id98.fasta" \
-        --ref "$SORTMERNA_DB/rfam-5.8s-database-id98.fasta" \
-        --workdir "$sample_sortmerna" \
-        --aligned "$sample_sortmerna/${sample_name}_aligned" \
-        --other "$sample_sortmerna/${sample_name}_unaligned" \
-        --fastx \
-        --out2 \
-        --paired_out \
-        --threads "$threads" \
-        --reads "$trimmed_r1" \
-        --reads "$trimmed_r2" || return 1
-    cat \
-        "$sample_sortmerna/${sample_name}_unaligned_fwd.fq" \
-        "$sample_sortmerna/${sample_name}_unaligned_rev.fq" \
-        > "$unaligned"
-}
-
-sample_done() {                         # usage: sample_done <sample_name>
-    [ -e "$CUTADAPT/$1/${1}_trimmed_R1.fastq" ] &&
-    [ -e "$CUTADAPT/$1/${1}_trimmed_R2.fastq" ] &&
-    [ -e "$SORTMERNA/$1/${1}.fq" ]
-}
-
-trim_filter() {                         # to ask user before looping over pairs to trim and filter
     samples=$(awk -F'\t' 'NR > 1 && $1 != "" {print $1}' "$cutadapt_txt")
 
     pending=0
     for s in $samples; do
-        [ -e "$CUTADAPT/$s/${s}_trimmed_R1.fastq" ] &&
-        [ -e "$CUTADAPT/$s/${s}_trimmed_R2.fastq" ] &&
-        [ -e "$SORTMERNA/$s/${s}.fq" ] || pending=1
+        [ -e "$CUTADAPT/${s}_trimmed_R1.fastq" ] &&
+        [ -e "$CUTADAPT/${s}_trimmed_R2.fastq" ] || pending=1
     done
     if [ "$pending" = 0 ] && [ "$force" != 1 ]; then
-        log "Trimming and rRNA filtering already done for all samples"
+        log "Trimming already done for all samples"
         return 0
     fi
 
-    printf 'Continue with trim_adapters and filter_rrna using the current cutadapt.txt? [y/n] '
+    printf 'Continue with trim_adapters using the current cutadapt.txt? [y/n] '
     read -r answer || answer=n          # no input counts as no
     case "$answer" in
-        y|Y) ;;                         # y input runs trim & filter
+        y|Y) ;;                         # y input runs trimming
         *)   log "Stopped before trimming. Edit cutadapt.txt, then run again."; return 0 ;;
     esac
 
+    header=$(head -n 1 "$cutadapt_txt")
     failed=""
     for sample_name in $samples; do
         log "=== Sample $sample_name ==="
-        sample_cutadapt="$CUTADAPT/$sample_name"
-        sample_sortmerna="$SORTMERNA/$sample_name"
-        trimmed_r1="$sample_cutadapt/${sample_name}_trimmed_R1.fastq"
-        trimmed_r2="$sample_cutadapt/${sample_name}_trimmed_R2.fastq"
-        unaligned="$sample_sortmerna/${sample_name}.fq"
+        row=$(awk -F'\t' -v s="$sample_name" '$1 == s {print; exit}' "$cutadapt_txt")
+        if [ -z "$row" ]; then
+            log "ERROR: $sample_name not found in cutadapt.txt"
+            failed="$failed $sample_name"
+            continue
+        fi
 
-        { trim_adapters && filter_rrna; } || failed="$failed $sample_name"
+        IFS=$'\t' read -r -a cols <<< "$header"
+        IFS=$'\t' read -r -a vals <<< "$row"
+        r1_name=""
+        r2_name=""
+        cut_args=()
+        for i in "${!cols[@]}"; do
+            col="${cols[$i]}"
+            val="${vals[$i]:-}"
+            case "$col" in
+                ""|sample_name) continue ;;
+                r1)             r1_name="$val" ;;
+                r2)             r2_name="$val" ;;
+                -o|-p|-j)       log "WARN: column $col is set by the script, ignored" ;;
+                -*)             [ -n "$val" ] && cut_args+=("$col" "$val") ;;
+                *)              log "WARN: unknown column $col, ignored" ;;
+            esac
+        done
+
+        if [ -z "$r1_name" ] || [ -z "$r2_name" ]; then
+            log "ERROR: r1 and r2 columns must be set for $sample_name"
+            failed="$failed $sample_name"
+            continue
+        fi
+        
+        r1="$READS/$r1_name"
+        r2="$READS/$r2_name"
+        trimmed_r1="$CUTADAPT/${sample_name}_trimmed_R1.fastq"
+        trimmed_r2="$CUTADAPT/${sample_name}_trimmed_R2.fastq"
+
+        need "$r1" 1 || { failed="$failed $sample_name"; continue; }
+        need "$r2" 1 || { failed="$failed $sample_name"; continue; }
+        skip_if_done "trim_reads" "$trimmed_r1" "$trimmed_r2" "$CUTADAPT/${sample_name}_trimmed.fastq" && continue
+
+        if run cutadapt "${cut_args[@]}" \
+            -j "$threads" \
+            -o "$trimmed_r1" \
+            -p "$trimmed_r2" \
+            --report=full \
+            "$r1" "$r2"; then
+            cat "$trimmed_r1" "$trimmed_r2" > "$CUTADAPT/${sample_name}_trimmed.fastq"
+        else
+            failed="$failed $sample_name"
+        fi
     done
+
     if [ -n "$failed" ]; then
         log "Failed samples:$failed"
         return 1
@@ -217,7 +179,7 @@ trim_filter() {                         # to ask user before looping over pairs 
 }
 
 case "${1:-all}" in
-    all)      run_stages 0 move_reads run_fastqc run_multiqc make_cutadapt_txt trim_filter ;;
-    allforce) run_stages 1 move_reads run_fastqc run_multiqc make_cutadapt_txt trim_filter ;;
+    all)      run_steps 0 move_reads run_fastqc run_multiqc make_cutadapt_txt trim_reads ;;
+    allforce) run_steps 1 move_reads run_fastqc run_multiqc make_cutadapt_txt trim_reads ;;
     *)        echo "Usage: $0 [all|allforce]"; exit 1 ;;
 esac
