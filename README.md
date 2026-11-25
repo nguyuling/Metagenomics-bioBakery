@@ -5,7 +5,7 @@
 
 ### Environments and Packages
 (refer `qc.yml` and `biobakery.yml`)
-1. **qc** — fastqc, multiqc, cutadapt, sortmerna
+1. **qc** — fastqc, multiqc, cutadapt
 2. **biobakery** — metaphlan, krona, humann, pandas, openpyxl
 ```bash
     cd <ENV_PATH>
@@ -14,15 +14,13 @@
 ```
 
 ### Database
-1. **SortMeRNA database**   [[download-here]](https://github.com/sortmerna/sortmerna/tree/master/test_data/refs)
-    contains reference rRNA FASTA files curated from SILVA (archaeal, bacterial and eukaryotic) and Rfam (5s and 5.8S rRNA subunits)
-2. **MetapPhlAn database**
+1. **MetapPhlAn database**
     contains ChocoPhlAn SGB (Species-level Genome Bins) marker database
 ```bash
     conda activate <BIOBAKERY_ENV>
     metaphlan --install --index mpa_vJun23_CHOCOPhlAnSGB_202307
 ```
-3. **HUMAnN database**   [[The Huttenhower Lab]](https://huttenhower.sph.harvard.edu/humann/)
+2. **HUMAnN database**   [[The Huttenhower Lab]](https://huttenhower.sph.harvard.edu/humann/)
     includes ChocoPhlAn (nucleotide pangenome database), UniRef90 (database of clustered protein sequences), utility mapping (mapping of UniRef90 id to other classification systems)
 ```bash
     conda activate <BIOBAKERY_ENV>
@@ -33,7 +31,7 @@
 ```
 
 ### Guide to Run the Pipeline
-0. Set output directories and files path in `lib.sh`
+0. Set output and databases directories path in `lib.sh`
 1. **Run QC** `fastqc` and `multiqc` on all paired-end reads
 ```bash
     conda activate <QC_ENV>
@@ -46,7 +44,7 @@
     - based on multiqc report, specifies trimming parameter for each reads pair by:
         - editing cutadapt flag on header row (`cutadapt --help` to refer all flags)
         - editing the values of each column (flag) and row (reads pair)
-3. **Resume QC** in terminal [y/n], to perform `cutadapt` and `sortmerna`, pair by pair
+3. **Resume QC** in terminal [y/n], to perform `cutadapt`, pair by pair
 ```bash
     y
 ```
@@ -73,27 +71,24 @@ metagenomics_biobakery
 │   ├── multiqc_report.pdf
 │   └── multiqc_report_data
 ├── 3_Cutadapt
-│   ├── <sample_1>
-│   ├── <sample_2>
+│   ├── <sample_1>_trimmed.fastq
+│   ├── <sample_2>_trimmed.fastq
 │   └── cutadapt.txt
-├── 4_Sortmerna
-│   ├── <sample_1>
-│   └── <sample_2>
-├── 5_MetaPhlAn
+├── 4_MetaPhlAn
 │   ├── <sample_1>
 │   │   └── <sample_1>.krona.html
 │   └── <sample_2>
 │       └── <sample_2>.krona.html
-├── 6_HUMAnN
+├── 5_HUMAnN
 │   ├── <sample_1>
 │   └── <sample_2>
-├── 7_Genes_Mapping
+├── 6_Genes_Mapping
 │   ├── Genes_Abs
 │   └── Genes_Relab
-├── 8_Pathways_Analysis
+├── 7_Pathways_Analysis
 │   ├── Unpacked_Pathabundance
 │   └── Unpacked_Pathcoverage
-├── 9_cross_analysis
+├── 8_cross_analysis
 │   ├── genes_uniref90.tsv
 │   ├── genes_uniref50.tsv
 │   ├── genes_eggnog.tsv
