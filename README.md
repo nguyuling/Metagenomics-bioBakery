@@ -31,7 +31,7 @@
 ```
 
 ### Guide to Run the Pipeline
-0. Set output and databases directories path in `lib.sh`
+0. Set output and databases directories path in `lib.sh` and locate all paired-end reads at output directory
 1. **Run QC** `fastqc` and `multiqc` on all paired-end reads
 ```bash
     conda activate <QC_ENV>
