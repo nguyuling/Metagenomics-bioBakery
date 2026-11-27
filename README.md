@@ -9,7 +9,7 @@
 2. **biobakery** — metaphlan, krona, humann, pandas, openpyxl
 ```bash
     cd <ENV_PATH>
-    conda create -n <QC_ENV_NAME> -c bioconda -c conda-forge fastqc multiqc cutadapt sortmerna
+    conda create -n <QC_ENV_NAME> -c bioconda -c conda-forge fastqc multiqc cutadapt
     conda create -n <BIOBAKERY_ENV_NAME> -c conda-forge -c bioconda -c biobakery -c defaults python=3.10 metaphlan krona humann=3.9 pandas openpyxl
 ```
 
@@ -55,13 +55,9 @@
     bash biobakery.sh allforce     # run all steps regardlessly
 ```
 
-### Sample Data
-DNA Sequence from Monoculture Carrot Rhizosphere (SRR31030799)
-DNA-Sequence from Soybean-precedent Carrot Rhizosphere (SRR30910742)
-
 ### Output Files Structure
 ```bash
-metagenomics_biobakery
+metagenomics_project
 ├── 0_Reads
 │   └── (all raw paired-end reads)
 ├── 1_Fastqc
